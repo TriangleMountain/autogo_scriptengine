@@ -57,6 +57,17 @@ go get github.com/ZingYao/autogo_scriptengine
 
 ## 快速开始
 
+### displayId 参数说明
+
+本项目中许多函数都支持 `displayId` 参数，用于指定操作的显示器 ID：
+
+- **displayId = 0**：默认显示器（主屏幕）
+- **displayId = 1**：第二个显示器（如副屏）
+- **displayId = 2**：第三个显示器
+- 以此类推...
+
+**注意**：大多数情况下使用 `displayId = 0` 即可。如果你的设备只有一个屏幕，所有操作都应该使用 `0`。
+
 ### JavaScript 引擎
 
 ```go
@@ -81,8 +92,8 @@ func main() {
         // 获取设备信息
         console.log("设备分辨率: " + device.width + "x" + device.height);
 
-        // 点击屏幕
-        click(500, 1000, 1);
+        // 点击屏幕（参数：x, y, fingerID, displayId）
+        click(500, 1000, 1, 0);
 
         // 延时
         sleep(1000);
@@ -119,8 +130,8 @@ func main() {
         -- 获取设备信息
         print("设备分辨率: " .. device.width .. "x" .. device.height)
 
-        -- 点击屏幕
-        click(500, 1000, 1)
+        -- 点击屏幕（参数：x, y, fingerID, displayId）
+        click(500, 1000, 1, 0)
 
         -- 延时
         sleep(1000)
@@ -207,7 +218,7 @@ print("协程状态: " .. status)
 
 ```javascript
 // JavaScript
-app.launch("com.example.app", 0);        // 启动应用
+app.launch("com.example.app", 0);        // 启动应用（第二个参数为 displayId）
 app.forceStop("com.example.app");        // 强制停止
 app.isInstalled("com.example.app");      // 检查是否安装
 app.uninstall("com.example.app");        // 卸载应用
@@ -215,7 +226,7 @@ app.uninstall("com.example.app");        // 卸载应用
 
 ```lua
 -- Lua
-app_launch("com.example.app", 0)         -- 启动应用
+app_launch("com.example.app", 0)         -- 启动应用（第二个参数为 displayId）
 app_forceStop("com.example.app")         -- 强制停止
 app_isInstalled("com.example.app")       -- 检查是否安装
 app_uninstall("com.example.app")         -- 卸载应用
@@ -225,9 +236,9 @@ app_uninstall("com.example.app")         -- 卸载应用
 
 ```javascript
 // JavaScript - 找色
-var result = images.findColor(0, 0, 1080, 1920, "#FF0000", 0.9, 0);
+var result = images.findColor(0, 0, 1080, 1920, "#FF0000", 0.9, 0, 0);
 if (result.x !== -1) {
-    click(result.x, result.y, 1);
+    click(result.x, result.y, 1, 0);
 }
 
 // OCR 文字识别
@@ -237,9 +248,9 @@ console.log(text);
 
 ```lua
 -- Lua - 找色
-local x, y = images_findColor(0, 0, 1080, 1920, "#FF0000", 0.9, 0)
+local x, y = images_findColor(0, 0, 1080, 1920, "#FF0000", 0.9, 0, 0)
 if x ~= -1 then
-    click(x, y, 1)
+    click(x, y, 1, 0)
 end
 
 -- OCR 文字识别
