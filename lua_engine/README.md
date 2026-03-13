@@ -25,6 +25,69 @@ func main() {
 }
 ```
 
+### 引擎配置选项
+
+引擎支持配置是否自动注入所有方法，适用于需要按需加载模块或自定义注入的场景：
+
+```go
+import lua_engine "github.com/ZingYao/autogo_scriptengine/lua_engine"
+
+func main() {
+    // 方式1: 使用默认配置（自动注入所有方法）
+    engine := lua_engine.GetEngine()
+    defer lua_engine.Close()
+
+    // 方式2: 使用自定义配置创建引擎
+    config := &lua_engine.EngineConfig{
+        AutoInjectMethods: false, // 禁用自动注入
+    }
+    engine := lua_engine.NewEngine(config)
+    defer engine.Close()
+
+    // 按需注入模块
+    engine.InjectModule("app")
+    engine.InjectModule("device")
+    engine.InjectModule("motion")
+
+    // 或注入多个模块
+    engine.InjectModules([]string{"files", "images", "ppocr"})
+
+    // 获取可用模块列表
+    modules := engine.GetAvailableModules()
+    // ["app", "device", "motion", "files", "images", "storages", "system", "http", "media", "opencv", "ppocr", "console", "dotocr", "hud", "ime", "plugin", "rhino", "uiacc", "utils", "vdisplay", "yolo", "imgui"]
+
+    // 手动注入所有方法
+    engine.InjectAllMethods()
+}
+```
+
+### 模块列表
+
+| 模块 | 说明 |
+|------|------|
+| `app` | 应用管理 |
+| `device` | 设备信息 |
+| `motion` | 触摸操作 |
+| `files` | 文件操作 |
+| `images` | 图像处理 |
+| `storages` | 数据存储 |
+| `system` | 系统功能 |
+| `http` | 网络请求 |
+| `media` | 媒体控制 |
+| `opencv` | 计算机视觉 |
+| `ppocr` | OCR 文字识别 |
+| `console` | 控制台窗口 |
+| `dotocr` | 点字 OCR |
+| `hud` | HUD 悬浮显示 |
+| `ime` | 输入法控制 |
+| `plugin` | 插件加载 |
+| `rhino` | JavaScript 执行引擎 |
+| `uiacc` | 无障碍 UI 操作 |
+| `utils` | 工具方法 |
+| `vdisplay` | 虚拟显示 |
+| `yolo` | YOLO 目标检测 |
+| `imgui` | Dear ImGui GUI 库 |
+
 ### 执行 Lua 代码
 
 ```go
@@ -1313,6 +1376,382 @@ local code, data = http_get("https://api.example.com/status", 5000)
 if code == 200 then
     print("请求成功")
 end
+```
+
+## 自定义 Go 方法注入
+
+除了使用内置的模块，你还可以注入自己实现的 Go 方法到 Lua 引擎中。
+
+### 方式1: 通过 RegisterMethod 注册方法
+
+```go
+package main
+
+import (
+    "fmt"
+    lua_engine "github.com/ZingYao/autogo_scriptengine/lua_engine"
+)
+
+func main() {
+    // 创建引擎（不自动注入方法）
+    config := &lua_engine.EngineConfig{
+        AutoInjectMethods: false,
+    }
+    engine := lua_engine.NewEngine(config)
+    defer engine.Close()
+
+    // 注册自定义 Go 函数
+    engine.RegisterMethod("myGreet", "打招呼", func(name string) string {
+        return "Hello, " + name + "!"
+    }, true)
+
+    // 注册带多参数的函数
+    engine.RegisterMethod("myAdd", "加法运算", func(a, b int) int {
+        return a + b
+    }, true)
+
+    // 注册返回多个值的函数（返回多个值或表）
+    engine.RegisterMethod("myGetInfo", "获取信息", func() map[string]interface{} {
+        return map[string]interface{}{
+            "name":    "AutoGo",
+            "version": "1.0.0",
+            "status":  "running",
+        }
+    }, true)
+
+    // 在 Lua 中调用
+    err := engine.ExecuteString(`
+        -- 调用自定义方法
+        local greeting = myGreet("World")
+        print(greeting) -- Hello, World!
+
+        local sum = myAdd(10, 20)
+        print("Sum: " .. sum) -- Sum: 30
+
+        local info = myGetInfo()
+        print("Name: " .. info.name)
+        print("Version: " .. info.version)
+    `)
+    if err != nil {
+        fmt.Printf("执行错误: %v\n", err)
+    }
+}
+```
+
+### 方式2: 直接通过 State 注册方法
+
+```go
+package main
+
+import (
+    "fmt"
+    lua_engine "github.com/ZingYao/autogo_scriptengine/lua_engine"
+    lua "github.com/yuin/gopher-lua"
+)
+
+func main() {
+    engine := lua_engine.NewEngine(nil) // 使用默认配置
+    defer engine.Close()
+
+    L := engine.GetState()
+
+    // 注册全局函数
+    L.Register("myCustomFunc", func(L *lua.LState) int {
+        arg := L.CheckString(1)
+        result := "Processed: " + arg
+        L.Push(lua.LString(result))
+        return 1 // 返回值数量
+    })
+
+    // 注册带多个参数的函数
+    L.Register("myMultiply", func(L *lua.LState) int {
+        a := L.CheckInt(1)
+        b := L.CheckInt(2)
+        L.Push(lua.LNumber(a * b))
+        return 1
+    })
+
+    // 注册返回多个值的函数
+    L.Register("myMinMax", func(L *lua.LState) int {
+        a := L.CheckInt(1)
+        b := L.CheckInt(2)
+        if a < b {
+            L.Push(lua.LNumber(a))
+            L.Push(lua.LNumber(b))
+        } else {
+            L.Push(lua.LNumber(b))
+            L.Push(lua.LNumber(a))
+        }
+        return 2 // 返回两个值
+    })
+
+    // 创建模块表
+    myModule := L.NewTable()
+    L.SetFuncs(myModule, map[string]lua.LGFunction{
+        "method1": func(L *lua.LState) int {
+            x := L.CheckInt(1)
+            y := L.CheckInt(2)
+            L.Push(lua.LNumber(x + y))
+            return 1
+        },
+        "method2": func(L *lua.LState) int {
+            s := L.CheckString(1)
+            L.Push(lua.LString("Echo: " .. s))
+            return 1
+        },
+    })
+    L.SetGlobal("myModule", myModule)
+
+    // 在 Lua 中调用
+    err := engine.ExecuteString(`
+        local result1 = myCustomFunc("test")
+        print(result1) -- Processed: test
+
+        local result2 = myMultiply(5, 6)
+        print(result2) -- 30
+
+        local min, max = myMinMax(10, 5)
+        print("Min: " .. min .. ", Max: " .. max) -- Min: 5, Max: 10
+
+        local result3 = myModule.method1(10, 20)
+        print(result3) -- 30
+
+        local result4 = myModule.method2("hello")
+        print(result4) -- Echo: hello
+    `)
+    if err != nil {
+        fmt.Printf("执行错误: %v\n", err)
+    }
+}
+```
+
+### 方式3: 创建自定义注入模块
+
+创建一个新的注入文件 `custom_inject.go`:
+
+```go
+package lua_engine
+
+import (
+    lua "github.com/yuin/gopher-lua"
+    "your-project/your-module"
+)
+
+// injectCustomMethods 注入自定义方法
+func injectCustomMethods(e *LuaEngine) {
+    L := e.L
+
+    // 创建自定义模块表
+    customTable := L.NewTable()
+
+    // 方法1: 简单函数
+    L.SetField(customTable, "doSomething", L.NewFunction(func(L *lua.LState) int {
+        param := L.CheckString(1)
+        result := yourmodule.DoSomething(param)
+        L.Push(lua.LString(result))
+        return 1
+    }))
+
+    // 方法2: 带多个参数
+    L.SetField(customTable, "processData", L.NewFunction(func(L *lua.LState) int {
+        data := L.CheckString(1)
+        options := L.CheckTable(2)
+
+        // 处理 options 表
+        optValue := ""
+        if v := L.GetField(options, "key"); v != lua.LNil {
+            optValue = v.String()
+        }
+
+        result := yourmodule.Process(data, optValue)
+        L.Push(lua.LString(result))
+        return 1
+    }))
+
+    // 方法3: 返回表
+    L.SetField(customTable, "getInfo", L.NewFunction(func(L *lua.LState) int {
+        info := yourmodule.GetInfo()
+        resultTable := L.NewTable()
+        L.SetField(resultTable, "name", lua.LString(info.Name))
+        L.SetField(resultTable, "value", lua.LNumber(info.Value))
+        L.Push(resultTable)
+        return 1
+    }))
+
+    // 注册到全局
+    L.SetGlobal("custom", customTable)
+}
+```
+
+然后在引擎初始化后调用:
+
+```go
+func main() {
+    config := &lua_engine.EngineConfig{
+        AutoInjectMethods: false,
+    }
+    engine := lua_engine.NewEngine(config)
+    defer engine.Close()
+
+    // 注入自定义模块
+    injectCustomMethods(engine)
+
+    // 执行脚本
+    engine.ExecuteString(`
+        local result = custom.doSomething("test")
+        print(result)
+
+        local info = custom.getInfo()
+        print("Name: " .. info.name)
+        print("Value: " .. info.value)
+    `)
+}
+```
+
+### 参数类型转换
+
+在 Go 和 Lua 之间传递数据时，需要注意类型转换：
+
+```go
+L.Register("processArgs", func(L *lua.LState) int {
+    // 字符串
+    str := L.CheckString(1)
+
+    // 数字
+    num := L.CheckNumber(2)
+    intNum := L.CheckInt(2)
+    floatNum := L.CheckFloat(2)
+
+    // 布尔值
+    boolVal := L.CheckBool(3)
+
+    // 表 -> Go map
+    table := L.CheckTable(4)
+    tableMap := make(map[string]interface{})
+    table.ForEach(func(k, v lua.LValue) {
+        switch v.Type() {
+        case lua.LTString:
+            tableMap[k.String()] = v.String()
+        case lua.LTNumber:
+            tableMap[k.String()] = float64(v.(lua.LNumber))
+        case lua.LTBool:
+            tableMap[k.String()] = bool(v.(lua.LBool))
+        }
+    })
+
+    // 返回表
+    resultTable := L.NewTable()
+    L.SetField(resultTable, "processed", lua.LBool(true))
+    L.SetField(resultTable, "str", lua.LString(str))
+    L.SetField(resultTable, "num", lua.LNumber(num))
+    L.Push(resultTable)
+
+    return 1
+})
+```
+
+### 完整示例：注入数据库操作模块
+
+```go
+package main
+
+import (
+    "database/sql"
+    "fmt"
+    lua_engine "github.com/ZingYao/autogo_scriptengine/lua_engine"
+    lua "github.com/yuin/gopher-lua"
+    _ "github.com/mattn/go-sqlite3"
+)
+
+func injectDatabaseModule(e *LuaEngine, db *sql.DB) {
+    L := e.GetState()
+
+    dbTable := L.NewTable()
+
+    // 查询方法
+    L.SetField(dbTable, "query", L.NewFunction(func(L *lua.LState) int {
+        sqlQuery := L.CheckString(1)
+        rows, err := db.Query(sqlQuery)
+        if err != nil {
+            L.Push(lua.LNil)
+            L.Push(lua.LString(err.Error()))
+            return 2
+        }
+        defer rows.Close()
+
+        columns, _ := rows.Columns()
+        resultTable := L.NewTable()
+        idx := 1
+
+        for rows.Next() {
+            values := make([]interface{}, len(columns))
+            valuePtrs := make([]interface{}, len(columns))
+            for i := range values {
+                valuePtrs[i] = &values[i]
+            }
+
+            rows.Scan(valuePtrs...)
+
+            rowTable := L.NewTable()
+            for i, col := range columns {
+                L.SetField(rowTable, col, lua.LString(fmt.Sprintf("%v", values[i])))
+            }
+            L.RawSetInt(resultTable, idx, rowTable)
+            idx++
+        }
+
+        L.Push(resultTable)
+        return 1
+    }))
+
+    // 执行方法
+    L.SetField(dbTable, "exec", L.NewFunction(func(L *lua.LState) int {
+        sqlStmt := L.CheckString(1)
+        result, err := db.Exec(sqlStmt)
+        if err != nil {
+            L.Push(lua.LNumber(0))
+            L.Push(lua.LString(err.Error()))
+            return 2
+        }
+        affected, _ := result.RowsAffected()
+        L.Push(lua.LNumber(affected))
+        return 1
+    }))
+
+    L.SetGlobal("db", dbTable)
+}
+
+func main() {
+    // 打开数据库
+    db, err := sql.Open("sqlite3", "/sdcard/mydb.sqlite")
+    if err != nil {
+        panic(err)
+    }
+    defer db.Close()
+
+    // 创建引擎
+    engine := lua_engine.NewEngine(nil)
+    defer engine.Close()
+
+    // 注入数据库模块
+    injectDatabaseModule(engine, db)
+
+    // 使用
+    engine.ExecuteString(`
+        -- 创建表
+        local affected = db.exec("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)")
+        print("Affected: " .. tostring(affected))
+
+        -- 插入数据
+        db.exec("INSERT INTO users (name) VALUES ('Alice')")
+
+        -- 查询数据
+        local users = db.query("SELECT * FROM users")
+        for i, user in ipairs(users) do
+            print("User: " .. user.name)
+        end
+    `)
+}
 ```
 
 ## 注意事项

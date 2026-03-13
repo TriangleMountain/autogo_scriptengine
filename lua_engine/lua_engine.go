@@ -13,17 +13,42 @@ var (
 	once   sync.Once
 )
 
+// GetLuaEngine 获取默认引擎实例（使用默认配置，自动注入所有方法）
 func GetLuaEngine() *LuaEngine {
 	once.Do(func() {
-		engine = &LuaEngine{}
+		engine = &LuaEngine{
+			config: DefaultConfig(),
+		}
 		initRegistry()
 		engine.init()
 	})
 	return engine
 }
 
+// GetEngine 获取默认引擎实例（GetLuaEngine 的别名）
 func GetEngine() *LuaEngine {
 	return GetLuaEngine()
+}
+
+// NewLuaEngine 创建新的引擎实例
+// config: 引擎配置，传入 nil 使用默认配置
+func NewLuaEngine(config *EngineConfig) *LuaEngine {
+	cfg := DefaultConfig()
+	if config != nil {
+		cfg = *config
+	}
+
+	e := &LuaEngine{
+		config: cfg,
+	}
+	initRegistry()
+	e.init()
+	return e
+}
+
+// NewEngine 创建新的引擎实例（NewLuaEngine 的别名）
+func NewEngine(config *EngineConfig) *LuaEngine {
+	return NewLuaEngine(config)
 }
 
 func (e *LuaEngine) init() {
@@ -36,7 +61,9 @@ func (e *LuaEngine) init() {
 	})
 
 	e.registerCoreFunctions()
-	e.injectAllMethods()
+	if e.config.AutoInjectMethods {
+		e.injectAllMethods()
+	}
 }
 
 func (e *LuaEngine) GetState() *lua.LState {
@@ -71,6 +98,98 @@ func (e *LuaEngine) injectAllMethods() {
 	injectMediaMethods(e)
 	injectOpenCVMethods(e)
 	injectPpocrMethods(e)
+	// 新增模块
+	injectConsoleMethods(e)
+	injectDotocrMethods(e)
+	injectHudMethods(e)
+	injectImeMethods(e)
+	injectPluginMethods(e)
+	injectRhinoMethods(e)
+	injectUiaccMethods(e)
+	injectUtilsMethods(e)
+	injectVdisplayMethods(e)
+	injectYoloMethods(e)
+	injectImguiMethods(e)
+}
+
+// InjectModule 注入指定模块的方法
+// module: 模块名称，支持: app, device, motion, files, images, storages, system, http, media, opencv, ppocr, console, dotocr, hud, ime, plugin, rhino, uiacc, utils, vdisplay, yolo, imgui
+func (e *LuaEngine) InjectModule(module string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	switch module {
+	case "app":
+		injectAppMethods(e)
+	case "device":
+		injectDeviceMethods(e)
+	case "motion":
+		injectMotionMethods(e)
+	case "files":
+		injectFilesMethods(e)
+	case "images":
+		injectImagesMethods(e)
+	case "storages":
+		injectStoragesMethods(e)
+	case "system":
+		injectSystemMethods(e)
+	case "http":
+		injectHttpsMethods(e)
+	case "media":
+		injectMediaMethods(e)
+	case "opencv":
+		injectOpenCVMethods(e)
+	case "ppocr":
+		injectPpocrMethods(e)
+	case "console":
+		injectConsoleMethods(e)
+	case "dotocr":
+		injectDotocrMethods(e)
+	case "hud":
+		injectHudMethods(e)
+	case "ime":
+		injectImeMethods(e)
+	case "plugin":
+		injectPluginMethods(e)
+	case "rhino":
+		injectRhinoMethods(e)
+	case "uiacc":
+		injectUiaccMethods(e)
+	case "utils":
+		injectUtilsMethods(e)
+	case "vdisplay":
+		injectVdisplayMethods(e)
+	case "yolo":
+		injectYoloMethods(e)
+	case "imgui":
+		injectImguiMethods(e)
+	default:
+		panic(fmt.Sprintf("unknown module: %s", module))
+	}
+}
+
+// InjectModules 注入多个模块的方法
+func (e *LuaEngine) InjectModules(modules []string) {
+	for _, module := range modules {
+		e.InjectModule(module)
+	}
+}
+
+// GetAvailableModules 获取所有可用模块列表
+func (e *LuaEngine) GetAvailableModules() []string {
+	return []string{
+		"app", "device", "motion", "files", "images", "storages",
+		"system", "http", "media", "opencv", "ppocr",
+		"console", "dotocr", "hud", "ime", "plugin",
+		"rhino", "uiacc", "utils", "vdisplay", "yolo", "imgui",
+	}
+}
+
+// InjectAllMethods 注入所有方法（公开方法，允许手动调用）
+func (e *LuaEngine) InjectAllMethods() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.injectAllMethods()
 }
 
 func (e *LuaEngine) RegisterMethod(name, description string, goFunc interface{}, overridable bool) {

@@ -8,9 +8,23 @@ import (
 	"github.com/dop251/goja"
 )
 
+// EngineConfig 引擎配置选项
+type EngineConfig struct {
+	AutoInjectMethods bool // 是否自动注入所有方法，默认为 true
+}
+
+// JSEngine JavaScript 引擎
 type JSEngine struct {
-	vm *goja.Runtime
-	mu sync.RWMutex
+	vm     *goja.Runtime
+	mu     sync.RWMutex
+	config EngineConfig
+}
+
+// DefaultConfig 返回默认配置
+func DefaultConfig() EngineConfig {
+	return EngineConfig{
+		AutoInjectMethods: true,
+	}
 }
 
 type MethodRegistry struct {

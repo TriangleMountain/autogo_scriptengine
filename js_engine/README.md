@@ -25,6 +25,69 @@ func main() {
 }
 ```
 
+### 引擎配置选项
+
+引擎支持配置是否自动注入所有方法，适用于需要按需加载模块或自定义注入的场景：
+
+```go
+import js_engine "github.com/ZingYao/autogo_scriptengine/js_engine"
+
+func main() {
+    // 方式1: 使用默认配置（自动注入所有方法）
+    engine := js_engine.GetEngine()
+    defer js_engine.Close()
+
+    // 方式2: 使用自定义配置创建引擎
+    config := &js_engine.EngineConfig{
+        AutoInjectMethods: false, // 禁用自动注入
+    }
+    engine := js_engine.NewEngine(config)
+    defer engine.Close()
+
+    // 按需注入模块
+    engine.InjectModule("app")
+    engine.InjectModule("device")
+    engine.InjectModule("motion")
+
+    // 或注入多个模块
+    engine.InjectModules([]string{"files", "images", "ppocr"})
+
+    // 获取可用模块列表
+    modules := engine.GetAvailableModules()
+    // ["app", "device", "motion", "files", "images", "storages", "system", "http", "media", "opencv", "ppocr", "console", "dotocr", "hud", "ime", "plugin", "rhino", "uiacc", "utils", "vdisplay", "yolo", "imgui"]
+
+    // 手动注入所有方法
+    engine.InjectAllMethods()
+}
+```
+
+### 模块列表
+
+| 模块 | 说明 |
+|------|------|
+| `app` | 应用管理 |
+| `device` | 设备信息 |
+| `motion` | 触摸操作 |
+| `files` | 文件操作 |
+| `images` | 图像处理 |
+| `storages` | 数据存储 |
+| `system` | 系统功能 |
+| `http` | 网络请求 |
+| `media` | 媒体控制 |
+| `opencv` | 计算机视觉 |
+| `ppocr` | OCR 文字识别 |
+| `console` | 控制台窗口 |
+| `dotocr` | 点字 OCR |
+| `hud` | HUD 悬浮显示 |
+| `ime` | 输入法控制 |
+| `plugin` | 插件加载 |
+| `rhino` | JavaScript 执行引擎 |
+| `uiacc` | 无障碍 UI 操作 |
+| `utils` | 工具方法 |
+| `vdisplay` | 虚拟显示 |
+| `yolo` | YOLO 目标检测 |
+| `imgui` | Dear ImGui GUI 库 |
+
 ### 执行 JavaScript 代码
 
 ```go
@@ -922,6 +985,322 @@ func main() {
 
 - **Lua 引擎**: 适合需要协程支持、对性能要求不极高的场景
 - **JavaScript 引擎**: 适合需要更高性能、更广泛开发者基础的场景
+
+## 自定义 Go 方法注入
+
+除了使用内置的模块，你还可以注入自己实现的 Go 方法到 JavaScript 引擎中。
+
+### 方式1: 通过 RegisterMethod 注册方法
+
+```go
+package main
+
+import (
+    "fmt"
+    js_engine "github.com/ZingYao/autogo_scriptengine/js_engine"
+)
+
+func main() {
+    // 创建引擎（不自动注入方法）
+    config := &js_engine.EngineConfig{
+        AutoInjectMethods: false,
+    }
+    engine := js_engine.NewEngine(config)
+    defer engine.Close()
+
+    // 注册自定义 Go 函数
+    engine.RegisterMethod("myGreet", "打招呼", func(name string) string {
+        return "Hello, " + name + "!"
+    }, true)
+
+    // 注册带多参数的函数
+    engine.RegisterMethod("myAdd", "加法运算", func(a, b int) int {
+        return a + b
+    }, true)
+
+    // 注册返回多个值的函数（通过返回 map 或对象）
+    engine.RegisterMethod("myGetInfo", "获取信息", func() map[string]interface{} {
+        return map[string]interface{}{
+            "name":  "AutoGo",
+            "version": "1.0.0",
+            "status": "running",
+        }
+    }, true)
+
+    // 在 JavaScript 中调用
+    err := engine.ExecuteString(`
+        // 调用自定义方法
+        var greeting = myGreet("World");
+        console.log(greeting); // Hello, World!
+
+        var sum = myAdd(10, 20);
+        console.log("Sum: " + sum); // Sum: 30
+
+        var info = myGetInfo();
+        console.log("Name: " + info.name);
+        console.log("Version: " + info.version);
+    `)
+    if err != nil {
+        fmt.Printf("执行错误: %v\n", err)
+    }
+}
+```
+
+### 方式2: 直接通过 VM 设置方法
+
+```go
+package main
+
+import (
+    "fmt"
+    js_engine "github.com/ZingYao/autogo_scriptengine/js_engine"
+    "github.com/dop251/goja"
+)
+
+func main() {
+    engine := js_engine.NewEngine(nil) // 使用默认配置
+    defer engine.Close()
+
+    vm := engine.GetVM()
+
+    // 设置全局函数
+    vm.Set("myCustomFunc", func(call goja.FunctionCall) goja.Value {
+        arg := call.Argument(0).String()
+        result := "Processed: " + arg
+        return vm.ToValue(result)
+    })
+
+    // 设置对象方法
+    myModule := vm.NewObject()
+    myModule.Set("method1", func(x, y int) int {
+        return x * y
+    })
+    myModule.Set("method2", func(s string) string {
+        return "Echo: " + s
+    })
+    vm.Set("myModule", myModule)
+
+    // 在 JavaScript 中调用
+    err := engine.ExecuteString(`
+        var result1 = myCustomFunc("test");
+        console.log(result1); // Processed: test
+
+        var result2 = myModule.method1(5, 6);
+        console.log(result2); // 30
+
+        var result3 = myModule.method2("hello");
+        console.log(result3); // Echo: hello
+    `)
+    if err != nil {
+        fmt.Printf("执行错误: %v\n", err)
+    }
+}
+```
+
+### 方式3: 创建自定义注入模块
+
+创建一个新的注入文件 `custom_inject.go`:
+
+```go
+package js_engine
+
+import (
+    "github.com/dop251/goja"
+    "your-project/your-module"
+)
+
+// injectCustomMethods 注入自定义方法
+func injectCustomMethods(e *JSEngine) {
+    vm := e.vm
+
+    // 创建自定义模块对象
+    customObj := vm.NewObject()
+
+    // 注入方法1
+    customObj.Set("doSomething", func(call goja.FunctionCall) goja.Value {
+        param := call.Argument(0).String()
+        result := yourmodule.DoSomething(param)
+        return vm.ToValue(result)
+    })
+
+    // 注入方法2（带多个参数）
+    customObj.Set("processData", func(call goja.FunctionCall) goja.Value {
+        data := call.Argument(0).Export()
+        options := call.Argument(1).ToObject(vm)
+
+        // 处理数据...
+        result := yourmodule.Process(data, options)
+
+        return vm.ToValue(result)
+    })
+
+    // 注入异步方法
+    customObj.Set("asyncOperation", func(call goja.FunctionCall) goja.Value {
+        callback := call.Argument(0)
+
+        go func() {
+            // 执行异步操作
+            result := yourmodule.AsyncOperation()
+
+            // 回调到 JavaScript
+            vm.RunString(fmt.Sprintf(`(%s)(%s)`, callback, result))
+        }()
+
+        return goja.Undefined()
+    })
+
+    // 注册到全局
+    vm.Set("custom", customObj)
+}
+```
+
+然后在引擎初始化后调用:
+
+```go
+func main() {
+    config := &js_engine.EngineConfig{
+        AutoInjectMethods: false,
+    }
+    engine := js_engine.NewEngine(config)
+    defer engine.Close()
+
+    // 注入自定义模块
+    injectCustomMethods(engine)
+
+    // 执行脚本
+    engine.ExecuteString(`
+        var result = custom.doSomething("test");
+        console.log(result);
+
+        custom.processData({key: "value"}, {option: true});
+    `)
+}
+```
+
+### 参数类型转换
+
+在 Go 和 JavaScript 之间传递数据时，需要注意类型转换：
+
+```go
+// 从 JavaScript 获取参数
+vm.Set("processArgs", func(call goja.FunctionCall) goja.Value {
+    // 字符串
+    str := call.Argument(0).String()
+
+    // 数字
+    num := call.Argument(1).ToFloat()
+    intNum := call.Argument(1).ToInteger()
+
+    // 布尔值
+    boolVal := call.Argument(2).ToBoolean()
+
+    // 对象 -> Go map
+    obj := call.Argument(3).ToObject(vm)
+    objMap := obj.Export().(map[string]interface{})
+
+    // 数组 -> Go slice
+    arr := call.Argument(4).Export().([]interface{})
+
+    // 返回值
+    return vm.ToValue(map[string]interface{}{
+        "processed": true,
+        "str":       str,
+        "num":       num,
+    })
+})
+```
+
+### 完整示例：注入数据库操作模块
+
+```go
+package main
+
+import (
+    "database/sql"
+    "fmt"
+    js_engine "github.com/ZingYao/autogo_scriptengine/js_engine"
+    _ "github.com/mattn/go-sqlite3"
+)
+
+func injectDatabaseModule(e *JSEngine, db *sql.DB) {
+    vm := e.GetVM()
+
+    dbObj := vm.NewObject()
+
+    // 查询方法
+    dbObj.Set("query", func(sqlQuery string) []map[string]interface{} {
+        rows, err := db.Query(sqlQuery)
+        if err != nil {
+            return nil
+        }
+        defer rows.Close()
+
+        columns, _ := rows.Columns()
+        var results []map[string]interface{}
+
+        for rows.Next() {
+            values := make([]interface{}, len(columns))
+            valuePtrs := make([]interface{}, len(columns))
+            for i := range values {
+                valuePtrs[i] = &values[i]
+            }
+
+            rows.Scan(valuePtrs...)
+
+            row := make(map[string]interface{})
+            for i, col := range columns {
+                row[col] = values[i]
+            }
+            results = append(results, row)
+        }
+
+        return results
+    })
+
+    // 执行方法
+    dbObj.Set("exec", func(sqlStmt string) (int64, error) {
+        result, err := db.Exec(sqlStmt)
+        if err != nil {
+            return 0, err
+        }
+        return result.RowsAffected()
+    })
+
+    vm.Set("db", dbObj)
+}
+
+func main() {
+    // 打开数据库
+    db, err := sql.Open("sqlite3", "/sdcard/mydb.sqlite")
+    if err != nil {
+        panic(err)
+    }
+    defer db.Close()
+
+    // 创建引擎
+    engine := js_engine.NewEngine(nil)
+    defer engine.Close()
+
+    // 注入数据库模块
+    injectDatabaseModule(engine, db)
+
+    // 使用
+    engine.ExecuteString(`
+        // 创建表
+        var affected = db.exec("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)");
+        console.log("Affected: " + affected);
+
+        // 插入数据
+        db.exec("INSERT INTO users (name) VALUES ('Alice')");
+
+        // 查询数据
+        var users = db.query("SELECT * FROM users");
+        for (var i = 0; i < users.length; i++) {
+            console.log("User: " + users[i].name);
+        }
+    `)
+}
+```
 
 ## 总结
 

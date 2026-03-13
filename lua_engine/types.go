@@ -8,9 +8,23 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
+// EngineConfig 引擎配置选项
+type EngineConfig struct {
+	AutoInjectMethods bool // 是否自动注入所有方法，默认为 true
+}
+
+// LuaEngine Lua 引擎
 type LuaEngine struct {
-	state *lua.LState
-	mu    sync.RWMutex
+	state  *lua.LState
+	mu     sync.RWMutex
+	config EngineConfig
+}
+
+// DefaultConfig 返回默认配置
+func DefaultConfig() EngineConfig {
+	return EngineConfig{
+		AutoInjectMethods: true,
+	}
 }
 
 type MethodRegistry struct {

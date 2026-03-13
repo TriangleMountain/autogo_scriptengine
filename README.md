@@ -31,6 +31,17 @@
 | `media` | 媒体控制（音量、播放等） |
 | `opencv` | 计算机视觉（图像处理、特征检测等） |
 | `ppocr` | OCR 文字识别 |
+| `console` | 控制台窗口（显示、隐藏、日志输出等） |
+| `dotocr` | 点字 OCR 识别（基于字库的 OCR） |
+| `hud` | HUD 悬浮显示（脚本状态显示等） |
+| `ime` | 输入法控制（剪切板、文本输入等） |
+| `plugin` | 插件加载（加载外部 APK 调用 Java 方法） |
+| `rhino` | JavaScript 执行引擎（Rhino） |
+| `uiacc` | 无障碍 UI 操作（控件查找、点击、输入等） |
+| `utils` | 工具方法（日志、Toast、类型转换等） |
+| `vdisplay` | 虚拟显示（虚拟屏操作） |
+| `yolo` | YOLO 目标检测（v5/v8 模型） |
+| `imgui` | Dear ImGui GUI 库（窗口、按钮、输入框等控件） |
 
 ## 环境要求
 
@@ -238,6 +249,51 @@ for i, result in ipairs(results) do
 end
 ```
 
+### 无障碍 UI 操作
+
+```javascript
+// JavaScript - 控件查找与点击
+var ui = uiacc.new(0);
+ui.text("登录").click("登录");
+var obj = ui.text("按钮").waitFor(5000);
+if (obj) {
+    obj.click();
+}
+```
+
+```lua
+-- Lua - 控件查找与点击
+local ui = uiacc_new(0)
+uiacc_text(ui, "登录")
+uiacc_click(ui, "登录")
+local obj = uiacc_waitFor(ui, 5000)
+if obj then
+    uiobj_click(obj)
+end
+```
+
+### YOLO 目标检测
+
+```javascript
+// JavaScript - YOLO 检测
+var y = yolo.new("v8", 4, "/sdcard/model.param", "/sdcard/model.bin", "/sdcard/labels.txt");
+var results = y.detect(0, 0, 1080, 1920, 0);
+for (var i = 0; i < results.length; i++) {
+    console.log(results[i].标签 + " at (" + results[i].X + ", " + results[i].Y + ")");
+}
+y.close();
+```
+
+```lua
+-- Lua - YOLO 检测
+local y = yolo_new("v8", 4, "/sdcard/model.param", "/sdcard/model.bin", "/sdcard/labels.txt")
+local results = yolo_detect(y, 0, 0, 1080, 1920, 0)
+for i, r in ipairs(results) do
+    print(r["标签"] .. " at (" .. r["X"] .. ", " .. r["Y"] .. ")")
+end
+yolo_close(y)
+```
+
 ### 文件操作
 
 ```lua
@@ -254,6 +310,16 @@ files_exists("/sdcard/test.txt")                 -- 检查是否存在
 storages_put("myData", "key1", "value1")         -- 存储数据
 local value = storages_get("myData", "key1")     -- 获取数据
 storages_contains("myData", "key1")              -- 检查键是否存在
+```
+
+### 工具方法
+
+```lua
+-- Lua
+utils_toast("提示信息")                    -- 显示 Toast
+utils_shell("ls /sdcard")                  -- 执行 Shell 命令
+local n = utils_random(1, 100)             -- 随机数
+utils_sleep(1000)                          -- 延时 1 秒
 ```
 
 ## 生成 API 文档
@@ -291,6 +357,16 @@ autogo_scriptengine/
 │   ├── media_inject.go       # 媒体控制 API
 │   ├── opencv_inject.go      # OpenCV API
 │   ├── ppocr_inject.go       # OCR API
+│   ├── console_inject.go     # 控制台 API
+│   ├── dotocr_inject.go      # 点字OCR API
+│   ├── hud_inject.go         # HUD API
+│   ├── ime_inject.go         # 输入法 API
+│   ├── plugin_inject.go      # 插件加载 API
+│   ├── rhino_inject.go       # Rhino JS API
+│   ├── uiacc_inject.go       # 无障碍UI API
+│   ├── utils_inject.go       # 工具方法 API
+│   ├── vdisplay_inject.go    # 虚拟显示 API
+│   ├── yolo_inject.go        # YOLO检测 API
 │   └── ...
 └── lua_engine/               # Lua 引擎
     ├── lua_engine.go         # 引擎核心
