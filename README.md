@@ -55,6 +55,20 @@
 go get github.com/ZingYao/autogo_scriptengine@v0.0.5
 ```
 
+## 📚 详细文档
+
+> **🔥 重要提示**：查看以下详细文档以获取完整的 API 参考和使用指南
+
+### 📖 JavaScript 引擎文档
+- [JavaScript 引擎完整文档](./js_engine/README.md) - 包含所有 API、配置选项和高级用法
+- [JavaScript 模块文档](./js_engine/model/) - 各个功能模块的详细说明
+
+### 📖 Lua 引擎文档
+- [Lua 引擎完整文档](./lua_engine/README.md) - 包含所有 API、配置选项和高级用法
+- [Lua 模块文档](./lua_engine/model/) - 各个功能模块的详细说明
+
+---
+
 ## 快速开始
 
 ### displayId 参数说明
