@@ -648,6 +648,42 @@ local function testUtilsModule()
     end
     print("\n=== 测试 utils 模块 ===")
     print("Utils 模块已加载")
+    
+    -- 测试 tointeger 方法
+    print("\n测试 tointeger 方法...")
+    local tointegerResult = math.tointeger(3.14)
+    print("math.tointeger(3.14): " .. tostring(tointegerResult))
+    
+    local tointegerResult2 = math.tointeger("123")
+    print("math.tointeger('123'): " .. tostring(tointegerResult2))
+    
+    -- 测试 type 方法
+    print("\n测试 type 方法...")
+    local typeResult1 = type(123)
+    print("type(123): " .. typeResult1)
+    
+    local typeResult2 = type("hello")
+    print("type('hello'): " .. typeResult2)
+    
+    local typeResult3 = type(true)
+    print("type(true): " .. typeResult3)
+    
+    local typeResult4 = type(nil)
+    print("type(nil): " .. typeResult4)
+    
+    local typeResult5 = type({1, 2, 3})
+    print("type({1, 2, 3}): " .. typeResult5)
+    
+    -- 测试 ult 方法
+    print("\n测试 ult 方法...")
+    local ultResult1 = ult(10, 20)
+    print("ult(10, 20): " .. tostring(ultResult1))
+    
+    local ultResult2 = ult(20, 10)
+    print("ult(20, 10): " .. tostring(ultResult2))
+    
+    local ultResult3 = ult(10, 10)
+    print("ult(10, 10): " .. tostring(ultResult3))
 end
 
 -- 测试 yolo 模块
