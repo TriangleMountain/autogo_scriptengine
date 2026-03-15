@@ -457,37 +457,54 @@ The command line is too long.
 **解决方案**：
 
 1. **避免过多使用带 C 的库**：尽量减少使用包含 C 代码的依赖包
-2. **减少依赖库的引用**：遇到问题时，仅保留刚需依赖库，使用白名单手动指定需要加载的模块
+2. **减少依赖库的引用**：遇到问题时，仅注册刚需模块，使用 `RegisterModule` 函数手动注册需要的模块
 3. **切换开发环境**：使用 macOS 或 Linux 系统进行编译
 
-**示例：使用白名单手动指定依赖**
+**示例：手动注册模块**
 
 ```go
-import "github.com/ZingYao/autogo_scriptengine/js_engine"
+package main
 
-// 只加载必需的模块，避免引入过多的 C 依赖
-config := js_engine.DefaultConfig()
-config.WhiteList = []string{
-    "app",      // 应用管理
-    "device",   // 设备信息
-    "motion",   // 触摸操作
-    "files",    // 文件操作
-    "console",  // 控制台
+import (
+    "github.com/ZingYao/autogo_scriptengine/js_engine"
+    jsAppModel "github.com/ZingYao/autogo_scriptengine/js_engine/model/app"
+    jsDeviceModel "github.com/ZingYao/autogo_scriptengine/js_engine/model/device"
+    jsMotionModel "github.com/ZingYao/autogo_scriptengine/js_engine/model/motion"
+    jsFilesModel "github.com/ZingYao/autogo_scriptengine/js_engine/model/files"
+    jsConsoleModel "github.com/ZingYao/autogo_scriptengine/js_engine/model/console"
+)
+
+func init() {
+    // 只注册必需的模块，避免引入过多的 C 依赖
+    js_engine.RegisterModule(
+        jsAppModel.AppModule{},
+        jsDeviceModel.DeviceModule{},
+        jsMotionModel.MotionModule{},
+        jsFilesModel.FilesModule{},
+        jsConsoleModel.ConsoleModule{},
+    )
 }
-engine := js_engine.NewEngine(&config)
-defer engine.Close()
 
-// 执行脚本
-err := engine.ExecuteString(`
-    console.log("Hello, JavaScript!");
-    const packageName = app.currentPackage();
-    console.log("当前应用包名: " + packageName);
-`)
+func main() {
+    // 获取引擎实例
+    engine := js_engine.GetEngine()
+    defer js_engine.Close()
+
+    // 执行脚本
+    err := engine.ExecuteString(`
+        console.log("Hello, JavaScript!");
+        const packageName = app.currentPackage();
+        console.log("当前应用包名: " + packageName);
+    `)
+    if err != nil {
+        fmt.Printf("执行脚本失败: %v\n", err)
+    }
+}
 ```
 
 **建议的开发流程**：
 
-1. 在 Windows 环境下开发时，只启用核心模块（如 app、device、motion、files、console）
+1. 在 Windows 环境下开发时，只注册核心模块（如 app、device、motion、files、console）
 2. 需要使用其他模块（如 opencv、ppocr 等）时，临时切换到 macOS/Linux 环境编译
 3. 或者使用 WSL (Windows Subsystem for Linux) 环境进行开发
 
