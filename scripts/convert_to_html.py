@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Markdown 转 HTML 转换脚本（带侧边栏版本）
-将项目中的所有 README.md 文件转换为带左侧菜单的 HTML 文档
+Markdown 转 docsify 文档系统
+将项目中的所有 README.md 文件转换为 docsify 格式的文档
 """
 
 import os
 import re
-import json
 from pathlib import Path
-import subprocess
+import shutil
 import sys
 
 # 检查是否安装了 markdown 库
@@ -20,875 +19,301 @@ except ImportError:
     print("请运行: pip install markdown")
     sys.exit(1)
 
-# HTML 模板（带侧边栏）
-HTML_TEMPLATE = """<!DOCTYPE html>
+# docsify 配置文件模板
+INDEX_HTML_TEMPLATE = """<!DOCTYPE html>
+
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoGo ScriptEngine 文档</title>
-    <style>
-        * {{
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }}
-        
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: #f5f7fa;
-            height: 100vh;
-            overflow: hidden;
-        }}
-        
-        .app-container {{
-            display: flex;
-            height: 100vh;
-            position: relative;
-        }}
-        
-        /* 左侧边栏触发区域 */
-        .sidebar-trigger-wrapper {{
-            position: fixed;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 100px;
-            z-index: 1001;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
-            box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
-            transition: all 0.3s ease;
-        }}
-        
-        .sidebar-trigger-wrapper:hover {{
-            box-shadow: 2px 2px 12px rgba(0,0,0,0.3);
-        }}
-        
-        .sidebar-trigger-wrapper::after {{
-            content: '☰';
-            font-size: 24px;
-            color: white;
-            writing-mode: horizontal-tb;
-            text-orientation: upright;
-            position: absolute;
-            left: 10px;
-            transition: all 0.3s ease;
-            opacity: 1;
-            transform: translateX(0);
-        }}
-        
-        .sidebar-trigger-wrapper.hidden {{
-            width: 0;
-            opacity: 0;
-            overflow: hidden;
-        }}
-        
-        .sidebar-trigger-wrapper.hidden::after {{
-            opacity: 0;
-            transform: translateX(-20px);
-        }}
-        
-        /* 左侧边栏 */
-        .sidebar {{
-            width: 300px;
-            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            overflow-y: auto;
-            flex-shrink: 0;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-            transition: width 0.3s ease;
-            position: relative;
-        }}
-        
-        .sidebar.collapsed {{
-            width: 0;
-            overflow: hidden;
-        }}
-        
-        .sidebar-header {{
-            padding: 30px 20px;
-            text-align: center;
-            border-bottom: 1px solid rgba(255,255,255,0.2);
-        }}
-        
-        .sidebar-header h1 {{
-            font-size: 1.8em;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }}
-        
-        .sidebar-header .subtitle {{
-            font-size: 0.9em;
-            opacity: 0.9;
-        }}
-        
-        .search-box {{
-            padding: 15px 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }}
-        
-        .search-box input {{
-            width: 100%;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 20px;
-            background: rgba(255,255,255,0.2);
-            color: white;
-            font-size: 0.9em;
-            outline: none;
-            transition: all 0.3s ease;
-        }}
-        
-        .search-box input::placeholder {{
-            color: rgba(255,255,255,0.6);
-        }}
-        
-        .search-box input:focus {{
-            background: rgba(255,255,255,0.3);
-            box-shadow: 0 0 0 2px rgba(255,255,255,0.2);
-        }}
-        
-        .search-results {{
-            display: none;
-            padding: 10px 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }}
-        
-        .search-results.show {{
-            display: block;
-        }}
-        
-        .search-result-item {{
-            padding: 8px 12px;
-            cursor: pointer;
-            border-radius: 6px;
-            margin-bottom: 5px;
-            transition: all 0.3s ease;
-        }}
-        
-        .search-result-item:hover {{
-            background: rgba(255,255,255,0.15);
-        }}
-        
-        .search-result-item .title {{
-            font-size: 0.9em;
-            margin-bottom: 3px;
-        }}
-        
-        .search-result-item .path {{
-            font-size: 0.75em;
-            opacity: 0.7;
-        }}
-        
-        .sidebar-content {{
-            padding: 20px 0;
-        }}
-        
-        .sidebar-section {{
-            margin-bottom: 20px;
-        }}
-        
-        .sidebar-section-title {{
-            padding: 10px 20px;
-            font-size: 0.85em;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            opacity: 0.7;
-            font-weight: 600;
-        }}
-        
-        .sidebar-menu {{
-            list-style: none;
-        }}
-        
-        .sidebar-menu-item {{
-            padding: 12px 20px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            border-left: 3px solid transparent;
-            font-size: 0.95em;
-        }}
-        
-        .sidebar-menu-item:hover {{
-            background: rgba(255,255,255,0.1);
-            border-left-color: rgba(255,255,255,0.5);
-        }}
-        
-        .sidebar-menu-item.active {{
-            background: rgba(255,255,255,0.2);
-            border-left-color: white;
-            font-weight: 600;
-        }}
-        
-        .sidebar-menu-item .icon {{
-            margin-right: 8px;
-            opacity: 0.7;
-        }}
-        
-        /* 右侧内容区 */
-        .main-content {{
-            flex: 1;
-            overflow-y: auto;
-            padding: 40px;
-            position: relative;
-            z-index: 1;
-        }}
-        
-        .content-wrapper {{
-            max-width: 900px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            padding: 50px;
-            position: relative;
-            z-index: 1;
-        }}
-        
-        /* 右侧目录触发区域 */
-        .toc-trigger-wrapper {{
-            position: fixed;
-            right: 0;
-            top: 100px;
-            bottom: 0;
-            width: 100px;
-            z-index: 1001;
-            cursor: pointer;
-            display: flex;
-            align-items: flex-start;
-            justify-content: flex-end;
-            background: white;
-            border: 2px solid #667eea;
-            box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
-            transition: all 0.3s ease;
-            border-radius: 8px 0 0 8px;
-        }}
-        
-        .toc-trigger-wrapper:hover {{
-            box-shadow: 2px 2px 12px rgba(0,0,0,0.2);
-        }}
-        
-        .toc-trigger-wrapper::after {{
-            content: '≡';
-            font-size: 24px;
-            color: #667eea;
-            writing-mode: horizontal-tb;
-            text-orientation: upright;
-            position: absolute;
-            right: 10px;
-            top: 10px;
-            transition: all 0.3s ease;
-            opacity: 1;
-            transform: translateX(0);
-        }}
-        
-        .toc-trigger-wrapper.hidden {{
-            width: 0;
-            opacity: 0;
-            overflow: hidden;
-        }}
-        
-        .toc-trigger-wrapper.hidden::after {{
-            opacity: 0;
-            transform: translateX(20px);
-        }}
-        
-        /* 悬浮目录 */
-        .toc-float {{
-            position: fixed;
-            right: 20px;
-            top: 100px;
-            width: 250px;
-            max-height: 70vh;
-            overflow-y: auto;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            padding: 15px;
-            z-index: 1000;
-            display: none;
-            transition: all 0.3s ease;
-        }}
-        
-        .toc-float.show {{
-            display: block;
-        }}
-        
-        .toc-float.collapsed {{
-            width: 0;
-            padding: 0;
-            overflow: hidden;
-            border-radius: 8px 0 0 8px;
-        }}
-        
-        .toc-float-header {{
-            font-weight: 600;
-            color: #667eea;
-            margin-bottom: 10px;
-            padding-bottom: 8px;
-            border-bottom: 2px solid #667eea;
-            font-size: 0.95em;
-        }}
-        
-        .toc-float-item {{
-            padding: 6px 10px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            border-left: 2px solid transparent;
-            font-size: 0.85em;
-            line-height: 1.4;
-        }}
-        
-        .toc-float-item:hover {{
-            background: #f8f9fa;
-            border-left-color: #667eea;
-        }}
-        
-        .toc-float-item.level-1 {{
-            font-weight: 600;
-            color: #667eea;
-        }}
-        
-        .toc-float-item.level-2 {{
-            padding-left: 20px;
-            font-weight: 500;
-            color: #555;
-        }}
-        
-        .toc-float-item.level-3 {{
-            padding-left: 35px;
-            font-weight: 400;
-            color: #666;
-            font-size: 0.9em;
-        }}
-        
-        .toc-float-item.level-4 {{
-            padding-left: 50px;
-            font-weight: 400;
-            color: #777;
-            font-size: 0.85em;
-        }}
-        
-        .toc-float::-webkit-scrollbar {{
-            width: 6px;
-        }}
-        
-        .toc-float::-webkit-scrollbar-track {{
-            background: #f1f1f1;
-        }}
-        
-        .toc-float::-webkit-scrollbar-thumb {{
-            background: #667eea;
-            border-radius: 3px;
-        }}
-        
-        .toc-float::-webkit-scrollbar-thumb:hover {{
-            background: #764ba2;
-        }}
-        
-        .content-header {{
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #667eea;
-        }}
-        
-        .content-header h1 {{
-            color: #667eea;
-            font-size: 2.2em;
-            margin-bottom: 10px;
-        }}
-        
-        .content-header .breadcrumb {{
-            color: #999;
-            font-size: 0.9em;
-        }}
-        
-        h1 {{
-            color: #667eea;
-            border-bottom: 3px solid #667eea;
-            padding-bottom: 10px;
-            margin-top: 40px;
-            margin-bottom: 20px;
-        }}
-        
-        h2 {{
-            color: #764ba2;
-            border-bottom: 2px solid #764ba2;
-            padding-bottom: 8px;
-            margin-top: 30px;
-            margin-bottom: 15px;
-        }}
-        
-        h3 {{
-            color: #555;
-            margin-top: 25px;
-            margin-bottom: 12px;
-        }}
-        
-        h4 {{
-            color: #666;
-            margin-top: 20px;
-            margin-bottom: 10px;
-        }}
-        
-        p {{
-            margin-bottom: 15px;
-            line-height: 1.8;
-        }}
-        
-        a {{
-            color: #667eea;
-            text-decoration: none;
-            transition: all 0.3s ease;
-        }}
-        
-        a:hover {{
-            color: #764ba2;
-            text-decoration: underline;
-        }}
-        
-        code {{
-            background: #f4f4f4;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
-            font-size: 0.9em;
-            color: #e83e8c;
-        }}
-        
-        pre {{
-            background: #2d2d2d;
-            color: #f8f8f2;
-            padding: 20px;
-            border-radius: 8px;
-            overflow-x: auto;
-            margin: 20px 0;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }}
-        
-        pre code {{
-            background: none;
-            color: inherit;
-            padding: 0;
-            font-size: 0.95em;
-        }}
-        
-        blockquote {{
-            border-left: 4px solid #667eea;
-            padding-left: 20px;
-            margin: 20px 0;
-            color: #666;
-            background: #f8f9fa;
-            padding: 15px 20px;
-            border-radius: 0 8px 8px 0;
-        }}
-        
-        ul, ol {{
-            margin-bottom: 15px;
-            padding-left: 30px;
-        }}
-        
-        li {{
-            margin-bottom: 8px;
-        }}
-        
-        table {{
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }}
-        
-        th {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 12px;
-            text-align: left;
-            font-weight: 600;
-        }}
-        
-        td {{
-            padding: 12px;
-            border: 1px solid #ddd;
-        }}
-        
-        tr:nth-child(even) {{
-            background: #f8f9fa;
-        }}
-        
-        tr:hover {{
-            background: #e9ecef;
-        }}
-        
-        hr {{
-            border: none;
-            height: 2px;
-            background: linear-gradient(90deg, #667eea, #764ba2);
-            margin: 40px 0;
-        }}
-        
-        img {{
-            max-width: 100%;
-            height: auto;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }}
-        
-        /* 滚动条样式 */
-        .sidebar::-webkit-scrollbar,
-        .main-content::-webkit-scrollbar {{
-            width: 8px;
-        }}
-        
-        .sidebar::-webkit-scrollbar-track,
-        .main-content::-webkit-scrollbar-track {{
-            background: rgba(0,0,0,0.1);
-        }}
-        
-        .sidebar::-webkit-scrollbar-thumb,
-        .main-content::-webkit-scrollbar-thumb {{
-            background: rgba(255,255,255,0.3);
-            border-radius: 4px;
-        }}
-        
-        .sidebar::-webkit-scrollbar-thumb:hover,
-        .main-content::-webkit-scrollbar-thumb:hover {{
-            background: rgba(255,255,255,0.5);
-        }}
-        
-        /* 移动端适配 */
-        @media (max-width: 768px) {{
-            .app-container {{
-                flex-direction: column;
-            }}
-            
-            .sidebar {{
-                width: 100%;
-                height: auto;
-                max-height: 40vh;
-            }}
-            
-            .content-wrapper {{
-                padding: 20px;
-            }}
-            
-            .content-header h1 {{
-                font-size: 1.5em;
-            }}
-            
-            .toc-float {{
-                display: none !important;
-            }}
-        }}
-    </style>
+<meta charset="utf-8"/>
+<title>AutoGo ScriptEngine</title>
+<link href="icon.svg" rel="icon" type="image/x-icon"/>
+<meta content="never" name="referrer"/>
+<meta content="IE=edge,chrome=1" http-equiv="X-UA-Compatible">
+<meta content="AutoGo ScriptEngine - 为 AutoGo 提供 JavaScript 和 Lua 脚本引擎支持" name="description"/>
+<meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" name="viewport"/>
+<link href="style/vue.css" rel="stylesheet"/>
+<link href="style/myStyle.css" rel="stylesheet" type="text/css">
+<style>
+    .cover {
+      background: linear-gradient(to left bottom, hsl(216, 100%, 85%) 0%, hsl(107, 100%, 85%) 100%) !important;
+    }
+  </style>
 </head>
 <body>
-    <!-- 左侧边栏触发区域 -->
-    <div class="sidebar-trigger-wrapper" id="sidebar-trigger" title="鼠标悬停展开"></div>
-    
-    <div class="app-container">
-        <!-- 左侧边栏 -->
-        <div class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <h1>📚 AutoGo ScriptEngine</h1>
-                <div class="subtitle">JavaScript & Lua 脚本引擎</div>
-            </div>
-            <div class="search-box">
-                <input type="text" id="search-input" placeholder="🔍 搜索文档..." oninput="handleSearch(this.value)">
-            </div>
-            <div class="search-results" id="search-results"></div>
-            <div class="sidebar-content">
-                {sidebar_content}
-            </div>
-        </div>
-        
-        <!-- 右侧内容区 -->
-        <div class="main-content">
-            <div class="content-wrapper">
-                <div id="content-area">
-                    <!-- 内容将通过 JavaScript 动态加载 -->
-                </div>
-            </div>
-            <!-- 悬浮目录 -->
-            <div class="toc-float" id="toc-float">
-                <div class="toc-float-header">📋 目录</div>
-                <div id="toc-float-content">
-                    <!-- 目录内容将通过 JavaScript 动态生成 -->
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 右侧目录触发区域 -->
-    <div class="toc-trigger-wrapper" id="toc-trigger" title="鼠标悬停展开"></div>
-    
-    <script>
-        // 文档数据
-        const documents = {documents_data};
-        
-        // 当前选中的文档
-        let currentDoc = null;
-        
-        // 初始化
-        document.addEventListener('DOMContentLoaded', function() {{
-            // 默认加载第一个文档
-            const firstDoc = Object.keys(documents)[0];
-            if (firstDoc) {{
-                loadDocument(firstDoc);
-            }}
-            
-            // 初始化侧边栏自动收起/展开功能
-            initSidebarAutoToggle();
-            
-            // 初始化右侧目录自动收起/展开功能
-            initTOCAutoToggle();
-        }});
-        
-        // 初始化侧边栏自动收起/展开功能
-        function initSidebarAutoToggle() {{
-            const sidebar = document.getElementById('sidebar');
-            const trigger = document.getElementById('sidebar-trigger');
-            let hideTimeout;
-            
-            // 鼠标进入触发区域，展开侧边栏
-            trigger.addEventListener('mouseenter', function() {{
-                clearTimeout(hideTimeout);
-                sidebar.classList.remove('collapsed');
-                trigger.classList.add('hidden');
-            }});
-            
-            // 鼠标离开侧边栏，延迟收起
-            sidebar.addEventListener('mouseleave', function() {{
-                hideTimeout = setTimeout(function() {{
-                    sidebar.classList.add('collapsed');
-                    trigger.classList.remove('hidden');
-                }}, 300);
-            }});
-            
-            // 初始状态：收起侧边栏
-            sidebar.classList.add('collapsed');
-        }}
-        
-        // 初始化右侧目录自动收起/展开功能
-        function initTOCAutoToggle() {{
-            const tocFloat = document.getElementById('toc-float');
-            const trigger = document.getElementById('toc-trigger');
-            let hideTimeout;
-            
-            // 鼠标进入触发区域，展开目录
-            trigger.addEventListener('mouseenter', function() {{
-                clearTimeout(hideTimeout);
-                tocFloat.classList.remove('collapsed');
-                trigger.classList.add('hidden');
-            }});
-            
-            // 鼠标离开目录，延迟收起
-            tocFloat.addEventListener('mouseleave', function() {{
-                hideTimeout = setTimeout(function() {{
-                    tocFloat.classList.add('collapsed');
-                    trigger.classList.remove('hidden');
-                }}, 300);
-            }});
-            
-            // 初始状态：收起目录
-            tocFloat.classList.add('collapsed');
-        }}
-        
-        // 加载文档
-        function loadDocument(docId, headingId = null) {{
-            const doc = documents[docId];
-            if (!doc) return;
-            
-            // 更新侧边栏选中状态
-            document.querySelectorAll('.sidebar-menu-item').forEach(item => {{
-                item.classList.remove('active');
-            }});
-            
-            const activeItem = document.querySelector(`[data-doc-id="${{docId}}"]`);
-            if (activeItem) {{
-                activeItem.classList.add('active');
-            }}
-            
-            // 如果指定了标题 ID，滚动到该位置
-            let content = doc.content;
-            if (headingId) {{
-                // 等待内容加载后滚动
-                setTimeout(() => {{
-                    const headingElement = document.getElementById(headingId);
-                    if (headingElement) {{
-                        headingElement.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
-                    }}
-                }}, 100);
-            }}
-            
-            // 更新内容区
-            const contentArea = document.getElementById('content-area');
-            contentArea.innerHTML = `
-                <div class="content-header">
-                    <h1>${{doc.title}}</h1>
-                    <div class="breadcrumb">${{doc.breadcrumb}}</div>
-                </div>
-                ${{content}}
-            `;
-            
-            // 为所有标题添加 ID，方便跳转
-            addHeadingIds();
-            
-            // 生成右侧悬浮目录
-            generateFloatingTOC(doc.headings);
-            
-            // 滚动到顶部
-            if (!headingId) {{
-                document.querySelector('.main-content').scrollTop = 0;
-            }}
-            
-            currentDoc = docId;
-        }}
-        
-        // 为标题添加 ID
-        function addHeadingIds() {{
-            const headings = document.querySelectorAll('#content-area h1, #content-area h2, #content-area h3, #content-area h4');
-            headings.forEach((heading, index) => {{
-                const text = heading.textContent.trim();
-                const id = 'heading-' + index;
-                heading.id = id;
-            }});
-        }}
-        
-        // 生成右侧悬浮目录
-        function generateFloatingTOC(headings) {{
-            const tocFloat = document.getElementById('toc-float');
-            const tocContent = document.getElementById('toc-float-content');
-            
-            if (!headings || headings.length === 0) {{
-                tocFloat.classList.remove('show');
-                return;
-            }}
-            
-            // 生成目录 HTML
-            let tocHTML = '';
-            headings.forEach(heading => {{
-                const level = heading.level;
-                const text = heading.text;
-                const id = heading.id;
-                
-                tocHTML += `<div class="toc-float-item level-${{level}}" onclick="scrollToHeading('${{id}}')">${{text}}</div>`;
-            }});
-            
-            tocContent.innerHTML = tocHTML;
-            tocFloat.classList.add('show');
-        }}
-        
-        // 滚动到指定标题
-        function scrollToHeading(headingId) {{
-            const headingElement = document.getElementById(headingId);
-            if (headingElement) {{
-                headingElement.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
-            }}
-        }}
-        
-        // 搜索功能
-        function handleSearch(query) {{
-            const searchResults = document.getElementById('search-results');
-            
-            if (!query.trim()) {{
-                searchResults.classList.remove('show');
-                return;
-            }}
-            
-            query = query.toLowerCase();
-            const results = [];
-            
-            // 搜索文档标题和内容
-            for (const [docId, doc] of Object.entries(documents)) {{
-                // 搜索标题
-                if (doc.title.toLowerCase().includes(query)) {{
-                    results.push({{
-                        docId: docId,
-                        title: doc.title,
-                        path: doc.breadcrumb,
-                        matchType: 'title'
-                    }});
-                }}
-                // 搜索内容
-                else if (doc.content.toLowerCase().includes(query)) {{
-                    results.push({{
-                        docId: docId,
-                        title: doc.title,
-                        path: doc.breadcrumb,
-                        matchType: 'content'
-                    }});
-                }}
-            }}
-            
-            // 显示搜索结果
-            if (results.length > 0) {{
-                searchResults.innerHTML = results.map(result => `
-                    <div class="search-result-item" onclick="loadDocument('${{result.docId}}')">
-                        <div class="title">${{result.title}}</div>
-                        <div class="path">${{result.path}}</div>
-                    </div>
-                `).join('');
-                searchResults.classList.add('show');
-            }} else {{
-                searchResults.innerHTML = '<div style="padding: 10px 20px; opacity: 0.7;">未找到相关文档</div>';
-                searchResults.classList.add('show');
-            }}
-        }}
-    </script>
+<div id="app">Loading...</div>
+<a class="to-top">Top</a>
+<script>
+    window.$docsify = {
+      el: '#app',
+      name: 'AutoGo ScriptEngine',
+      repo: 'https://github.com/ZingYao/autogo_scriptengine',
+      coverpage: true,
+      loadSidebar: true,
+      auto2top: true,
+      subMaxLevel: 2,
+      maxLevel: 4,
+      homepage: 'README.md',
+
+      alias: {
+        '/API/_sidebar.md': '/_sidebar.md'
+      },
+      
+      search: {
+        paths: 'auto',
+        placeholder: {
+          '/':'🔍 搜索'
+        },
+        noData: {
+          '/':'😒 找不到结果',
+        },
+        depth: 4,
+        maxAge: 86400000,
+      },
+
+      footer: {
+        copy: '<span>MIT License</span>',
+        auth: ' <strong>AutoGo ScriptEngine</strong>',
+        pre: '<hr/>',
+        style: 'text-align: center;',
+      },
+
+      copyCode: {
+          buttonText: '复制',
+          errorText: '错误',
+          successText: '成功!'
+      },
+
+      'flexible-alerts': {
+        style: 'flat'
+      }
+
+    }
+  </script>
+<script src="docsify@4"></script>
+<script src="docsify-copy-code"></script>
+<script src="search.min.js"></script>
+<script src="prism-go.min.js"></script>
+<script src="docsify-footer.min.js"></script>
+<script src="style/jquery-1.11.3.min.js"></script>
+<script src="style/jquery.toTop.min.js"></script>
+<script>
+    $('.to-top').toTop();
+  </script>
+<script src="docsify-plugin-flexible-alerts.min.js"></script>
+<script src="zoom-image.js"></script>
 </body>
 </html>
 """
 
-def convert_markdown_to_html(md_path):
-    """将 Markdown 文件转换为 HTML 内容"""
-    try:
-        # 读取 Markdown 文件
-        with open(md_path, 'r', encoding='utf-8') as f:
-            md_content = f.read()
-        
-        # 提取标题
-        title_match = re.search(r'^#\s+(.+)$', md_content, re.MULTILINE)
-        title = title_match.group(1) if title_match else '文档'
-        
-        # 提取所有标题（一级、二级、三级等）
-        headings = []
-        heading_pattern = r'^(#{1,4})\s+(.+)$'
-        for match in re.finditer(heading_pattern, md_content, re.MULTILINE):
-            level = len(match.group(1))
-            text = match.group(2).strip()
-            headings.append({
-                'level': level,
-                'text': text,
-                'id': f"heading-{len(headings)}"
-            })
-        
-        # 转换 Markdown 到 HTML
-        html_content = markdown.markdown(
-            md_content,
-            extensions=[
-                'tables',
-                'fenced_code',
-                'codehilite',
-                'nl2br',
-                'sane_lists'
-            ]
-        )
-        
-        return {
-            'title': title,
-            'content': html_content,
-            'headings': headings
-        }
-    except Exception as e:
-        print(f"✗ 转换失败: {md_path} - {str(e)}")
-        return None
+# _sidebar.md 模板
+SIDEBAR_TEMPLATE = """- 前言
+  - [简介](README.md)
+  - [更新日志](changelog.md)
+
+- 引擎文档
+  - [JavaScript 引擎](js_engine/README.md)
+  - [Lua 引擎](lua_engine/README.md)
+
+- API 文档
+{api_docs}
+"""
+
+# README.md 模板
+README_TEMPLATE = """# AutoGo ScriptEngine
+
+[AutoGo](https://github.com/Dasongzi1366/AutoGo) 的脚本引擎扩展方案，为 AutoGo 提供 JavaScript 和 Lua 脚本语言支持，让开发者可以用熟悉的脚本语言编写自动化任务。
+
+## 为什么选择 ScriptEngine
+
+1. **降低准入门槛** - 使用脚本语言开发，无需深入理解 Go 语言和 Android 开发，降低学习成本
+2. **代码保护** - 脚本代码易于混淆加密，有效保护业务逻辑
+3. **热更新支持** - 脚本可动态加载，无需重新编译即可更新功能
+4. **无痛迁移** - 可以无痛迁移其他平台的代码，复用现有的脚本代码库
+
+## 功能特性
+
+- **双引擎支持**：同时支持 JavaScript 和 Lua 脚本语言
+- **丰富的 API**：提供应用管理、设备控制、图像识别、OCR 等多种功能
+- **方法注册系统**：支持动态注册、重写和恢复方法
+- **协程支持**：Lua 引擎支持协程操作
+- **文档生成**：可自动生成 API 文档
+
+## 安装
+
+```bash
+go get github.com/ZingYao/autogo_scriptengine@v0.0.9
+```
+
+## 📚 详细文档
+
+> **🔥 重要提示**：查看以下详细文档以获取完整的 API 参考和使用指南
+
+### 🌐 HTML 在线文档
+
+> **推荐**：查看美观的 HTML 在线文档，提供更好的阅读体验
+
+- [📖 文档索引](index.html) - 所有文档的导航页面
+- [🏠 项目主页](README.md) - 项目介绍和功能特性
+- [JavaScript 引擎文档](js_engine/README.md) - JavaScript 引擎完整文档
+- [Lua 引擎文档](lua_engine/README.md) - Lua 引擎完整文档
+
+**使用方法**：
+```bash
+# 生成/更新 HTML 文档
+python3 scripts/convert_to_html.py
+```
+
+## 快速开始
+
+### JavaScript 引擎示例
+
+```javascript
+const engine = js_engine.getEngine();
+
+try {
+    // 执行 JavaScript 代码
+    engine.executeString(`
+        console.log("Hello, AutoGo!");
+        const packageName = app.currentPackage();
+        console.log("当前应用: " + packageName);
+    `);
+} finally {
+    engine.close();
+}
+```
+
+### Lua 引擎示例
+
+```lua
+local engine = lua_engine.getEngine()
+
+try {
+    -- 执行 Lua 代码
+    engine.executeString([[
+        print("Hello, AutoGo!")
+        local packageName = app.currentPackage()
+        print("当前应用: " .. packageName)
+    ]])
+} finally {
+    engine.close()
+}
+```
+
+## 模块列表
+
+| 模块 | 说明 | 支持引擎 |
+|------|------|----------|
+| `app` | 应用管理 | JavaScript, Lua |
+| `device` | 设备信息 | JavaScript, Lua |
+| `motion` | 触摸操作 | JavaScript, Lua |
+| `files` | 文件操作 | JavaScript, Lua |
+| `images` | 图像处理 | JavaScript, Lua |
+| `storages` | 数据存储 | JavaScript, Lua |
+| `system` | 系统功能 | JavaScript, Lua |
+| `http` | 网络请求 | JavaScript, Lua |
+| `media` | 媒体控制 | JavaScript, Lua |
+| `opencv` | 计算机视觉 | JavaScript, Lua |
+| `ppocr` | OCR 文字识别 | JavaScript, Lua |
+| `console` | 控制台 | JavaScript, Lua |
+| `dotocr` | 点字 OCR 识别 | JavaScript, Lua |
+| `hud` | HUD 悬浮显示 | JavaScript, Lua |
+| `ime` | 输入法控制 | JavaScript, Lua |
+| `plugin` | 插件加载 | JavaScript, Lua |
+| `rhino` | JavaScript 执行引擎 | JavaScript, Lua |
+| `uiacc` | 无障碍 UI 操作 | JavaScript, Lua |
+| `utils` | 工具方法 | JavaScript, Lua |
+| `vdisplay` | 虚拟显示 | JavaScript, Lua |
+| `yolo` | YOLO 目标检测 | JavaScript, Lua |
+| `imgui` | Dear ImGui GUI 库 | JavaScript, Lua |
+| `coroutine` | 协程支持 | JavaScript, Lua |
+
+## 兼容性说明
+
+### Android 版本兼容性
+
+- **Android 16+**：完全支持
+- **Android 10-15**：部分模块可能存在兼容性问题
+- **Android 9 及以下**：不建议使用
+
+### 常见问题
+
+1. **内存引用错误**：在某些 Android 版本下，某些包可能会出现内存引用错误。遇到问题时，可以修改引入的包来处理。
+
+2. **Windows 编译问题**：在 Windows 环境下开发时，如果引入了超过 1 个以上的带 C 依赖的库，可能会导致编译命令过长，触发以下错误：
+   ```
+   The command line is too long.
+   ```
+   解决方案：
+   - 避免过多使用带 C 的库
+   - 减少依赖库的引用，只注册刚需模块
+   - 切换到 macOS 或 Linux 系统进行编译
+
+## 许可证
+
+MIT License
+
+## 贡献
+
+欢迎提交 Issues 和 Pull Requests！
+"""
+
+# changelog.md 模板
+CHANGELOG_TEMPLATE = """# 更新日志
+
+## v0.0.9 (2026-03-16)
+
+### 文档更新与脚本引擎支持
+
+- 支持 JavaScript 和 Lua 脚本引擎
+- 支持 require 功能，实现脚本模块化
+- 完善文档结构和 API 参考
+- 修复各种兼容性问题
+- 添加模块白名单功能，解决 Windows 编译命令过长问题
+- 优化代码结构和性能
+- 添加无痛迁移特性，支持其他平台代码的无缝迁移
+
+## v0.0.5 (2026-03-13)
+
+### 完成全量测试并修复完善
+
+- 对所有模块进行全量测试
+- 修复测试中发现的问题
+- 完善代码实现和文档
+- 优化代码结构和性能
+
+## v0.0.4 (2026-03-13)
+
+### 功能增强与修复
+
+- 修复初始化问题
+- 优化方法注册机制
+- 完善错误处理
+- 提升代码稳定性
+
+## v0.0.3 (2026-03-13)
+
+### 修复编译问题
+
+- 修复编译错误
+- 优化依赖管理
+- 提升构建稳定性
+
+## v0.0.2 (2026-03-13)
+
+### 完善 API
+
+- 完善 API 实现
+- 修复参数错误
+- 优化代码结构
+
+## v0.0.1 (2026-03-13)
+
+### 项目初始化
+
+- 初始化 AutoGo ScriptEngine 项目
+- 实现基本架构
+- 添加核心模块
+"""
 
 def find_all_readmes(root_dir):
     """查找所有 README.md 文件"""
@@ -902,7 +327,7 @@ def find_all_readmes(root_dir):
                 readmes.append(os.path.join(root, file))
     return readmes
 
-def generate_sidebar(project_root, readmes, documents_data):
+def generate_sidebar_content(project_root, readmes):
     """生成侧边栏内容"""
     # 按目录分组
     grouped = {}
@@ -914,76 +339,54 @@ def generate_sidebar(project_root, readmes, documents_data):
             grouped[dir_name] = []
         grouped[dir_name].append(rel_path)
     
-    # 生成侧边栏 HTML
-    sidebar_html = ''
+    # 生成 API 文档部分
+    api_docs = []
     
-    # 定义图标
-    icons = {
-        '.': '🏠',
-        'js_engine': '⚡',
-        'lua_engine': '🌙',
-        'js_engine/model': '📦',
-        'lua_engine/model': '📦'
-    }
+    # 处理 js_engine 模块
+    if 'js_engine/model' in grouped:
+        for file_path in sorted(grouped['js_engine/model']):
+            module_name = os.path.basename(os.path.dirname(file_path))
+            api_docs.append(f"  - [js/{module_name}]({file_path})")
     
-    # 按目录排序
-    sorted_dirs = sorted(grouped.keys())
+    # 处理 lua_engine 模块
+    if 'lua_engine/model' in grouped:
+        for file_path in sorted(grouped['lua_engine/model']):
+            module_name = os.path.basename(os.path.dirname(file_path))
+            api_docs.append(f"  - [lua/{module_name}]({file_path})")
     
-    # 根目录优先
-    if '.' in sorted_dirs:
-        sorted_dirs.remove('.')
-        sorted_dirs.insert(0, '.')
-    
-    for dir_name in sorted_dirs:
-        icon = icons.get(dir_name, '📄')
-        display_name = dir_name if dir_name != '.' else '根目录'
-        
-        sidebar_html += f'<div class="sidebar-section">\n'
-        sidebar_html += f'<div class="sidebar-section-title">{icon} {display_name}</div>\n'
-        sidebar_html += f'<ul class="sidebar-menu">\n'
-        
-        for file_path in sorted(grouped[dir_name]):
-            # 生成文档 ID
-            doc_id = file_path.replace('/', '_').replace('.md', '')
-            
-            # 获取文档数据
-            doc_data = documents_data.get(doc_id, {})
-            doc_title = doc_data.get('title', '文档')
-            
-            # 生成菜单项
-            sidebar_html += f'  <li class="sidebar-menu-item" data-doc-id="{doc_id}" onclick="loadDocument(\'{doc_id}\')">\n'
-            sidebar_html += f'    <span class="icon">📄</span>{doc_title}\n'
-            sidebar_html += f'  </li>\n'
-        
-        sidebar_html += f'</ul>\n'
-        sidebar_html += f'</div>\n'
-    
-    return sidebar_html
+    return '\n'.join(api_docs)
 
-def generate_documents_data(project_root, readmes):
-    """生成文档数据"""
-    documents = {}
+def copy_docsify_files(docs_dir, docs_copy_dir):
+    """复制 docsify 所需的文件"""
+    # 复制样式文件
+    style_src = os.path.join(docs_copy_dir, 'style')
+    style_dst = os.path.join(docs_dir, 'style')
+    if os.path.exists(style_src):
+        shutil.copytree(style_src, style_dst, dirs_exist_ok=True)
+        print(f"✓ 复制样式文件: {style_src} -> {style_dst}")
     
-    for md_path in readmes:
-        rel_path = os.path.relpath(md_path, project_root)
-        doc_id = rel_path.replace('/', '_').replace('.md', '')
-        
-        # 转换 Markdown
-        doc_data = convert_markdown_to_html(md_path)
-        if doc_data:
-            documents[doc_id] = {
-                'title': doc_data['title'],
-                'breadcrumb': rel_path,
-                'content': doc_data['content'],
-                'headings': doc_data['headings']
-            }
+    # 复制图标文件
+    icon_src = os.path.join(docs_copy_dir, 'icon.svg')
+    icon_dst = os.path.join(docs_dir, 'icon.svg')
+    if os.path.exists(icon_src):
+        shutil.copy2(icon_src, icon_dst)
+        print(f"✓ 复制图标文件: {icon_src} -> {icon_dst}")
     
-    return documents
+    # 复制 JavaScript 文件
+    js_files = ['docsify@4', 'docsify-copy-code', 'search.min.js', 'prism-go.min.js', 
+                'docsify-footer.min.js', 'docsify-plugin-flexible-alerts.min.js', 'zoom-image.js']
+    
+    for js_file in js_files:
+        js_src = os.path.join(docs_copy_dir, js_file)
+        js_dst = os.path.join(docs_dir, js_file)
+        if os.path.exists(js_src):
+            shutil.copy2(js_src, js_dst)
+            print(f"✓ 复制 JavaScript 文件: {js_file}")
 
 def main():
     """主函数"""
     print("=" * 60)
-    print("Markdown 转 HTML 转换工具（带侧边栏版本）")
+    print("Markdown 转 docsify 文档系统")
     print("=" * 60)
     
     # 获取项目根目录
@@ -997,39 +400,71 @@ def main():
     readmes = find_all_readmes(project_root)
     print(f"找到 {len(readmes)} 个 README.md 文件\n")
     
-    # 转换所有文件
-    print("正在转换文档...")
-    documents_data = generate_documents_data(project_root, readmes)
-    print(f"成功转换 {len(documents_data)} 个文档\n")
-    
-    # 生成侧边栏
-    print("正在生成侧边栏...")
-    sidebar_content = generate_sidebar(project_root, readmes, documents_data)
-    
-    # 生成 HTML
-    print("正在生成 HTML 文件...")
-    html = HTML_TEMPLATE.format(
-        sidebar_content=sidebar_content,
-        documents_data=json.dumps(documents_data, ensure_ascii=False)
-    )
-    
-    # 保存 HTML 文件
+    # 准备 docs 目录
     docs_dir = os.path.join(project_root, 'docs')
     os.makedirs(docs_dir, exist_ok=True)
     
-    output_path = os.path.join(docs_dir, 'index.html')
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.write(html)
+    # 复制 docsify 所需文件
+    docs_copy_dir = os.path.join(project_root, 'docs copy')
+    if os.path.exists(docs_copy_dir):
+        print("正在复制 docsify 所需文件...")
+        copy_docsify_files(docs_dir, docs_copy_dir)
+    else:
+        print("警告: docs copy 目录不存在，跳过复制 docsify 文件")
     
-    print(f"✓ 已生成: {output_path}")
+    # 生成 index.html
+    print("\n正在生成 index.html...")
+    index_html_path = os.path.join(docs_dir, 'index.html')
+    with open(index_html_path, 'w', encoding='utf-8') as f:
+        f.write(INDEX_HTML_TEMPLATE)
+    print(f"✓ 生成: {index_html_path}")
+    
+    # 生成 _sidebar.md
+    print("正在生成 _sidebar.md...")
+    sidebar_content = generate_sidebar_content(project_root, readmes)
+    sidebar_content = SIDEBAR_TEMPLATE.format(api_docs=sidebar_content)
+    sidebar_path = os.path.join(docs_dir, '_sidebar.md')
+    with open(sidebar_path, 'w', encoding='utf-8') as f:
+        f.write(sidebar_content)
+    print(f"✓ 生成: {sidebar_path}")
+    
+    # 生成 README.md
+    print("正在生成 README.md...")
+    readme_path = os.path.join(docs_dir, 'README.md')
+    with open(readme_path, 'w', encoding='utf-8') as f:
+        f.write(README_TEMPLATE)
+    print(f"✓ 生成: {readme_path}")
+    
+    # 生成 changelog.md
+    print("正在生成 changelog.md...")
+    changelog_path = os.path.join(docs_dir, 'changelog.md')
+    with open(changelog_path, 'w', encoding='utf-8') as f:
+        f.write(CHANGELOG_TEMPLATE)
+    print(f"✓ 生成: {changelog_path}")
+    
+    # 复制所有 README.md 文件到 docs 目录
+    print("\n正在复制 README.md 文件...")
+    for md_path in readmes:
+        rel_path = os.path.relpath(md_path, project_root)
+        dest_path = os.path.join(docs_dir, rel_path)
+        
+        # 创建目标目录
+        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+        
+        # 复制文件
+        shutil.copy2(md_path, dest_path)
+        print(f"✓ 复制: {rel_path}")
     
     # 输出统计信息
     print("\n" + "=" * 60)
     print("转换完成！")
-    print(f"文档数量: {len(documents_data)} 个")
+    print(f"文档数量: {len(readmes)} 个")
     print("=" * 60)
-    print(f"\nHTML 文档已保存到: {output_path}")
-    print("\n使用浏览器打开该文件即可查看文档！")
+    print(f"\ndocsify 文档已生成到: {docs_dir}")
+    print("\n使用浏览器打开以下文件查看文档：")
+    print(f"  {os.path.join(docs_dir, 'index.html')}")
+    print("\n或使用 docsify 命令启动本地服务器：")
+    print("  cd docs && docsify serve")
 
 if __name__ == '__main__':
     main()

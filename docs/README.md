@@ -32,9 +32,9 @@ go get github.com/ZingYao/autogo_scriptengine@v0.0.9
 > **推荐**：查看美观的 HTML 在线文档，提供更好的阅读体验
 
 - [📖 文档索引](./docs/index.html) - 所有文档的导航页面
-- [🏠 项目主页](./docs/README.md) - 项目介绍和功能特性
-- [JavaScript 引擎文档](./docs/js_engine/README.md) - JavaScript 引擎完整文档
-- [Lua 引擎文档](./docs/lua_engine/README.md) - Lua 引擎完整文档
+- [🏠 项目主页](./docs/README.html) - 项目介绍和功能特性
+- [JavaScript 引擎文档](./docs/js_engine/README.html) - JavaScript 引擎完整文档
+- [Lua 引擎文档](./docs/lua_engine/README.html) - Lua 引擎完整文档
 
 **使用方法**：
 ```bash
