@@ -11,7 +11,7 @@ type: cover
 ![color](#f0f4f8)
 
 <div style="display: flex; justify-content: center; margin: 40px 0;">
-  <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20cartoon%20robot%20programmer%20with%20code%20symbols%20around%20it%2C%20friendly%20expression%2C%20simple%20style%2C%20blue%20and%20green%20colors&image_size=square" alt="ScriptEngine Mascot" style="width: 200px; height: 200px; border-radius: 50%; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+  <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20cartoon%20robot%20programmer%20with%20code%20symbols%20around%20it%2C%20friendly%20expression%2C%20simple%20style%2C%20green%20and%20cyan%20colors&image_size=square" alt="ScriptEngine Mascot" style="width: 200px; height: 200px; border-radius: 50%; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
 </div>
 
 ## 核心特点
@@ -30,9 +30,9 @@ type: cover
 ## 快速开始
 
 <div style="display: flex; justify-content: center; gap: 20px; margin: 40px 0;">
-  <a href="#/js_engine/README.md" style="padding: 12px 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3); transition: all 0.3s ease;">JavaScript 引擎</a>
-  <a href="#/lua_engine/README.md" style="padding: 12px 30px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 12px rgba(240, 147, 251, 0.3); transition: all 0.3s ease;">Lua 引擎</a>
-  <a href="#/changelog.md" style="padding: 12px 30px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 12px rgba(79, 172, 254, 0.3); transition: all 0.3s ease;">更新日志</a>
+  <a href="#/js_engine/README.md" style="padding: 12px 30px; background: linear-gradient(to left bottom, hsl(216, 100%, 65%) 0%, hsl(107, 100%, 65%) 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3); transition: all 0.3s ease;">JavaScript 引擎</a>
+  <a href="#/lua_engine/README.md" style="padding: 12px 30px; background: linear-gradient(to left bottom, hsl(216, 100%, 65%) 0%, hsl(107, 100%, 65%) 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3); transition: all 0.3s ease;">Lua 引擎</a>
+  <a href="#/changelog.md" style="padding: 12px 30px; background: linear-gradient(to left bottom, hsl(216, 100%, 65%) 0%, hsl(107, 100%, 65%) 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3); transition: all 0.3s ease;">更新日志</a>
 </div>
 
 ## 安装
@@ -56,28 +56,28 @@ MIT License
 
 <style>
   :root {
-    --theme-color: #667eea;
+    --theme-color: #4CAF50;
   }
   
   .cover {
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%) !important;
+    background: linear-gradient(to left bottom, hsl(216, 100%, 85%) 0%, hsl(107, 100%, 85%) 100%) !important;
   }
   
   h1 {
-    color: #2c3e50 !important;
+    color: #2E7D32 !important;
     font-size: 2.5rem !important;
     margin-bottom: 1rem !important;
   }
   
   h2 {
-    color: #34495e !important;
+    color: #00897B !important;
     font-size: 1.5rem !important;
     margin-bottom: 2rem !important;
   }
   
   blockquote {
     border-left: 4px solid var(--theme-color) !important;
-    background: rgba(102, 126, 234, 0.1) !important;
+    background: rgba(76, 175, 80, 0.1) !important;
     padding: 15px 20px !important;
     border-radius: 0 8px 8px 0 !important;
     margin: 20px 0 !important;
@@ -90,7 +90,7 @@ MIT License
   }
   
   th {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    background: linear-gradient(to left bottom, hsl(216, 100%, 65%) 0%, hsl(107, 100%, 65%) 100%) !important;
     color: white !important;
     padding: 12px !important;
     text-align: left !important;
@@ -103,11 +103,11 @@ MIT License
   }
   
   tr:nth-child(even) {
-    background: #f8f9fa !important;
+    background: #f1f8e9 !important;
   }
   
   tr:hover {
-    background: #e3f2fd !important;
+    background: #e8f5e8 !important;
   }
   
   a:hover {
